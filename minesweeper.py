@@ -1,5 +1,6 @@
 import itertools
 import random
+import copy
 
 
 class Minesweeper():
@@ -58,7 +59,6 @@ class Minesweeper():
         within one row and column of a given cell,
         not including the cell itself.
         """
-
         # Keep count of nearby mines
         count = 0
 
@@ -105,27 +105,37 @@ class Sentence():
         """
         Returns the set of all cells in self.cells known to be mines.
         """
-        raise NotImplementedError
+        if len(self.cells) == self.count:
+            return self.cells
+        else:
+            return None
 
     def known_safes(self):
         """
         Returns the set of all cells in self.cells known to be safe.
+
         """
-        raise NotImplementedError
+        if self.count == 0:
+            return self.cells
+        else:
+            return None
 
     def mark_mine(self, cell):
         """
         Updates internal knowledge representation given the fact that
         a cell is known to be a mine.
         """
-        raise NotImplementedError
+        if cell in self.cells:
+            self.cells.remove(cell)
+            self.count -= 1
 
     def mark_safe(self, cell):
         """
         Updates internal knowledge representation given the fact that
         a cell is known to be safe.
         """
-        raise NotImplementedError
+        if cell in self.cells:
+            self.cells.remove(cell)
 
 
 class MinesweeperAI():
@@ -182,7 +192,39 @@ class MinesweeperAI():
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
         """
-        raise NotImplementedError
+        self.moves_made.add(cell)
+        self.mark_safe(cell)
+        neighbors = set()
+
+        for i in range(cell[0] - 1, cell[0] + 2):
+            for j in range(cell[1] - 1, cell[1] + 2):
+                if 0 <= i < self.height and 0 <= j < self.width:
+                    neighbor = (i, j)
+                    if neighbor not in self.moves_made:
+                        neighbors.add(neighbor)
+
+        _sentence = Sentence(neighbors.difference(self.moves_made), count)
+        self.knowledge.append(_sentence)
+        _safes = copy.deepcopy(_sentence.known_safes())
+        _mines = copy.deepcopy(_sentence.known_mines())
+        if _safes is not None:
+            for cell in _safes:
+                self.mark_safe(cell)
+        if _mines is not None:
+            for cell in _mines:
+                self.mark_mine(cell)
+
+        """
+        the point is, if their are prior sentences that need to be updated, that would now equal zero or whatever length, they need to be considered
+
+        """
+        sortedKnowledge = copy.deepcopy(self.knowledge)
+        sortedKnowledge.sort(key=lambda x: x.count)
+        # for sentence in sortedKnowledge:
+        print(*sortedKnowledge, sep="\n")
+
+        # TODO: 5) add any new sentences to the AI's knowledge base
+        # if they can be inferred from existing knowledge
 
     def make_safe_move(self):
         """
