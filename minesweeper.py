@@ -1,6 +1,7 @@
 import itertools
 import random
 import copy
+import random
 
 
 class Minesweeper():
@@ -115,6 +116,7 @@ class Sentence():
         Returns the set of all cells in self.cells known to be safe.
 
         """
+        print("SENTENCE known_safes self.count: ", self.count)
         if self.count == 0:
             return self.cells
         else:
@@ -192,27 +194,37 @@ class MinesweeperAI():
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
         """
-        self.moves_made.add(cell)
-        self.mark_safe(cell)
+        _cell = copy.deepcopy(cell)
+        self.moves_made.add(_cell)
+        _moves_made = copy.deepcopy(self.moves_made)
+        self.mark_safe(_cell)
         neighbors = set()
 
-        for i in range(cell[0] - 1, cell[0] + 2):
-            for j in range(cell[1] - 1, cell[1] + 2):
+        for i in range(_cell[0] - 1, _cell[0] + 2):
+            for j in range(_cell[1] - 1, _cell[1] + 2):
                 if 0 <= i < self.height and 0 <= j < self.width:
                     neighbor = (i, j)
-                    if neighbor not in self.moves_made:
+                    if neighbor not in _moves_made:
                         neighbors.add(neighbor)
-
-        _sentence = Sentence(neighbors.difference(self.moves_made), count)
+        print("count: ", count)
+        _sentence = Sentence(neighbors.difference(_moves_made), count)
+        print("_sentence.cells: ", _sentence.cells,
+              "_sentence.count: ", _sentence.count)
         self.knowledge.append(_sentence)
         _safes = copy.deepcopy(_sentence.known_safes())
         _mines = copy.deepcopy(_sentence.known_mines())
+
         if _safes is not None:
+            _safes = _safes.difference(_moves_made)
             for cell in _safes:
-                self.mark_safe(cell)
+
+                _cell = copy.deepcopy(cell)
+                self.mark_safe(_cell)
         if _mines is not None:
+            _mines = _mines.difference(_moves_made)
             for cell in _mines:
-                self.mark_mine(cell)
+                _cell = copy.deepcopy(cell)
+                self.mark_mine(_cell)
 
         """
         the point is, if their are prior sentences that need to be updated, that would now equal zero or whatever length, they need to be considered
@@ -227,15 +239,23 @@ class MinesweeperAI():
         # if they can be inferred from existing knowledge
 
     def make_safe_move(self):
-        """
-        Returns a safe cell to choose on the Minesweeper board.
-        The move must be known to be safe, and not already a move
-        that has been made.
-
-        This function may use the knowledge in self.mines, self.safes
-        and self.moves_made, but should not modify any of those values.
-        """
-        raise NotImplementedError
+        _self = copy.deepcopy(self)
+        if len(_self.safes) > 0:
+            print("AI make safe move")
+            available = _self.safes.difference(_self.moves_made)
+            # TODO testjpf: out of available moves and get this error:
+            """
+            line 247, in make_safe_move
+            move = random.choice([*available])
+            File "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/random.py", line 261, in choice
+            raise IndexError('Cannot choose from an empty sequence') from None
+            IndexError: Cannot choose from an empty sequence
+            """
+            move = random.choice([*available])
+            print("safe: ", move)
+            return move
+        else:
+            None
 
     def make_random_move(self):
         """
@@ -244,4 +264,10 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        raise NotImplementedError
+        print("MAKE RANDOM MOVE")
+        _self = copy.deepcopy(self)
+        if len(Minesweeper.board) > 0:
+            _board = {*Minesweeper.board}
+            return random.sample((_board.difference(_self.moves_made)), 1)
+        else:
+            return None
