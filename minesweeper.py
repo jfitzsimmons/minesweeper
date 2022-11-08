@@ -107,6 +107,7 @@ class Sentence():
         Returns the set of all cells in self.cells known to be mines.
         """
         if len(self.cells) == self.count:
+            print("known_mine: ", [*self.cells])
             return self.cells
         else:
             return None
@@ -116,7 +117,6 @@ class Sentence():
         Returns the set of all cells in self.cells known to be safe.
 
         """
-        print("SENTENCE known_safes self.count: ", self.count)
         if self.count == 0:
             return self.cells
         else:
@@ -160,12 +160,19 @@ class MinesweeperAI():
 
         # List of sentences about the game known to be true
         self.knowledge = []
+        self.board = []
+
+        for i in range(self.height):
+            for j in range(self.width):
+                self.board.append((i, j))
 
     def mark_mine(self, cell):
         """
         Marks a cell as a mine, and updates all knowledge
         to mark that cell as a mine as well.
         """
+        # TESTJPF try loggin mostly when something is marked safe by ai or marked mine and see if you agree
+
         self.mines.add(cell)
         for sentence in self.knowledge:
             sentence.mark_mine(cell)
@@ -175,6 +182,7 @@ class MinesweeperAI():
         Marks a cell as safe, and updates all knowledge
         to mark that cell as safe as well.
         """
+        # TESTJPF try loggin mostly when something is marked safe by ai or marked mine and see if you agree
         self.safes.add(cell)
         for sentence in self.knowledge:
             sentence.mark_safe(cell)
@@ -194,6 +202,7 @@ class MinesweeperAI():
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
         """
+        print("__ADDED__ cell: ", cell)
         _cell = copy.deepcopy(cell)
         self.moves_made.add(_cell)
         _moves_made = copy.deepcopy(self.moves_made)
@@ -206,37 +215,61 @@ class MinesweeperAI():
                     neighbor = (i, j)
                     if neighbor not in _moves_made:
                         neighbors.add(neighbor)
-        print("count: ", count)
+
         _sentence = Sentence(neighbors.difference(_moves_made), count)
         print("_sentence.cells: ", _sentence.cells,
-              "_sentence.count: ", _sentence.count)
-        self.knowledge.append(_sentence)
+              "_sentence.count: ", _sentence.count, "for cell: ", _cell)
+        if len(_sentence.cells) > 0:
+            self.knowledge.append(_sentence)
         _safes = copy.deepcopy(_sentence.known_safes())
         _mines = copy.deepcopy(_sentence.known_mines())
 
+        if len(_sentence.cells) == _sentence.count:
+            print("should mark mine for: ", [*_sentence.cells])
+            print("_mines: ", [*_mines])
         if _safes is not None:
             _safes = _safes.difference(_moves_made)
             for cell in _safes:
-
                 _cell = copy.deepcopy(cell)
                 self.mark_safe(_cell)
         if _mines is not None:
-            _mines = _mines.difference(_moves_made)
+            print("_mines length A: ", len(_mines))
+            _mines = _mines.difference(self.mines)
+            print("_mines length B: ", len(_mines))
             for cell in _mines:
                 _cell = copy.deepcopy(cell)
                 self.mark_mine(_cell)
 
-        """
-        the point is, if their are prior sentences that need to be updated, that would now equal zero or whatever length, they need to be considered
+        sortedKnowledge = copy.copy(self.knowledge)
+        sortedKnowledge.sort(key=lambda x: x.count, reverse=True)
+        #print(*self.knowledge, sep="\n")
 
-        """
-        sortedKnowledge = copy.deepcopy(self.knowledge)
-        sortedKnowledge.sort(key=lambda x: x.count)
-        # for sentence in sortedKnowledge:
-        print(*sortedKnowledge, sep="\n")
+        for i, sentence in enumerate(sortedKnowledge[:-1]):
+            if sortedKnowledge[i+1].cells.issubset(sentence.cells) and len(sortedKnowledge[i+1].cells) > 0:
+                # TODO: TESTJPF log both sets and make sure they actually subsets
+                print(sortedKnowledge[i+1].cells,
+                      " is subset of ", sentence.cells)
+                solos = sentence.cells.difference(sortedKnowledge[i+1].cells)
+                diffs = sentence.cells.difference(solos)
+                solos = solos.difference(self.safes)
+                if len(solos) > 0:
+                    newCount = sentence.count-sortedKnowledge[i+1].count
+                    print("Big set: ", sentence.count,
+                          "little set: ", sortedKnowledge[i+1].count)
+                    print(
+                        "Sentence(solos: ", [*solos], ", newcount: ", newCount)
+                    # TODO: TESTJPF probably need to loop this
+                    newSentence = Sentence(solos, newCount)
 
-        # TODO: 5) add any new sentences to the AI's knowledge base
-        # if they can be inferred from existing knowledge
+                    self.knowledge.append(newSentence)
+                    if newCount == 0:
+                        for cell in solos:
+                            print("!!!! __enumerate__ marked safe: ", cell)
+                            self.mark_safe(cell)
+                if len(diffs) > 0 and len(diffs) == sentence.count:
+                    for cell in diffs:
+                        print("!!!! __enumerate__ marked MINE: ", cell)
+                        self.mark_mine(cell)
 
     def make_safe_move(self):
         _self = copy.deepcopy(self)
@@ -251,9 +284,10 @@ class MinesweeperAI():
             raise IndexError('Cannot choose from an empty sequence') from None
             IndexError: Cannot choose from an empty sequence
             """
-            move = random.choice([*available])
-            print("safe: ", move)
-            return move
+            if len(available) > 0:
+                move = random.choice([*available])
+                print("safe: ", move)
+                return move
         else:
             None
 
@@ -264,10 +298,12 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
+
         print("MAKE RANDOM MOVE")
         _self = copy.deepcopy(self)
-        if len(Minesweeper.board) > 0:
-            _board = {*Minesweeper.board}
-            return random.sample((_board.difference(_self.moves_made)), 1)
+        _available = {*_self.board}.difference(_self.moves_made)
+        _available = _available.difference(_self.mines)
+        if len(_available) > 0:
+            return random.choice([*_available])
         else:
             return None
